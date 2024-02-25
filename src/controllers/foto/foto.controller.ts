@@ -66,6 +66,44 @@ export class FotoController {
     }
   }
 
+  @get('/foto/search')
+@response(200, {
+  description: 'Search photos',
+  content: {
+    'application/json': {
+      schema: {
+        type: 'array',
+        items: getModelSchemaRef(Foto, {includeRelations: true}),
+      },
+    },
+  },
+})
+async searchPhotos(
+  @param.query.string('keyword') keyword: string,
+): Promise<Object> {
+  try {
+    // Lakukan pencarian berdasarkan keyword di database
+    const fotos = await this.fotoRepository.find({
+      where: {
+        or: [
+          { JudulFoto: { like: `%${keyword}%` } },
+          { DeskripsiFoto: { like: `%${keyword}%` } },
+        ],
+      },
+    });
+
+    return {
+      success: true,
+      datafoto: fotos,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error,
+    };
+  }
+}
+
   @get('/foto/{id}') //buat naro foto di FE tapi sesuai id
   @response(200, {
     description: 'Get a photo by ID',
@@ -134,6 +172,8 @@ export class FotoController {
       });
     });
   }
+
+
 
   @post('/foto/update', {
     responses: {
