@@ -8,6 +8,9 @@ import {HelperConfig} from '../../helper/helper.config';
 import {Foto} from '../../models';
 import {FotoRepository} from '../../repositories';
 import {DELETE_FOTO, UPDATE_FOTO} from './foto.schema';
+import sharp, {Sharp} from 'sharp';
+import {readFile, writeFile} from 'fs/promises';
+import {resolve} from 'path';
 dotenv.config();
 
 interface FileFoto {
@@ -149,6 +152,25 @@ async searchPhotos(
             const data: FileFoto = request.body
             const tanggalunggah = HelperConfig.onGetDateTimeNow();
             const filelokasi = `http://${process.env.HOST}:${process.env.PORT}/images/${request.file?.filename}`
+
+            // const fileBuffer = await readFile(request.file?.path!);
+
+            // const watermarkPath = resolve('public/images/example-logo.jpg');
+
+
+            // if (typeof watermarkPath !== 'string') {
+            //   throw new Error('Invalid watermark path');
+            // }
+
+            // const watermarkBuffer = await readFile(watermarkPath);
+            // const watermarkedImageBuffer = await sharp(fileBuffer)
+            //   .composite([{ input: watermarkBuffer, left: 50, top: 50 }])
+            //   .png()
+            //   .toBuffer();
+
+            // const watermarkedFilePath = resolve(`./public/images/watermarked-${Date.now()}.jpg`);
+            // await writeFile(watermarkedFilePath, watermarkedImageBuffer);
+
             const create = await this.fotoRepository.create({
               JudulFoto: data.JUDULFOTO,
               DeskripsiFoto: data.DESKRIPSIFOTO,
