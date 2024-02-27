@@ -3,14 +3,13 @@ import {Filter, repository} from '@loopback/repository';
 import {RestBindings, get, getModelSchemaRef, param, post, requestBody, response} from '@loopback/rest';
 import dotenv from 'dotenv';
 import {Request, Response} from 'express';
+import {readFile, writeFile} from 'fs/promises';
 import multer, {Multer, StorageEngine} from 'multer';
+import Sharp from 'sharp';
 import {HelperConfig} from '../../helper/helper.config';
 import {Foto} from '../../models';
 import {FotoRepository} from '../../repositories';
 import {DELETE_FOTO, UPDATE_FOTO} from './foto.schema';
-import sharp, {Sharp} from 'sharp';
-import {readFile, writeFile} from 'fs/promises';
-import {resolve} from 'path';
 dotenv.config();
 
 interface FileFoto {
@@ -70,42 +69,42 @@ export class FotoController {
   }
 
   @get('/foto/search')
-@response(200, {
-  description: 'Search photos',
-  content: {
-    'application/json': {
-      schema: {
-        type: 'array',
-        items: getModelSchemaRef(Foto, {includeRelations: true}),
+  @response(200, {
+    description: 'Search photos',
+    content: {
+      'application/json': {
+        schema: {
+          type: 'array',
+          items: getModelSchemaRef(Foto, {includeRelations: true}),
+        },
       },
     },
-  },
-})
-async searchPhotos(
-  @param.query.string('keyword') keyword: string,
-): Promise<Object> {
-  try {
-    // Lakukan pencarian berdasarkan keyword di database
-    const fotos = await this.fotoRepository.find({
-      where: {
-        or: [
-          { JudulFoto: { like: `%${keyword}%` } },
-          { DeskripsiFoto: { like: `%${keyword}%` } },
-        ],
-      },
-    });
+  })
+  async searchPhotos(
+    @param.query.string('keyword') keyword: string,
+  ): Promise<Object> {
+    try {
+      // Lakukan pencarian berdasarkan keyword di database
+      const fotos = await this.fotoRepository.find({
+        where: {
+          or: [
+            {JudulFoto: {like: `%${keyword}%`}},
+            {DeskripsiFoto: {like: `%${keyword}%`}},
+          ],
+        },
+      });
 
-    return {
-      success: true,
-      datafoto: fotos,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error,
-    };
+      return {
+        success: true,
+        datafoto: fotos,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error,
+      };
+    }
   }
-}
 
   @get('/foto/{id}') //buat naro foto di FE tapi sesuai id
   @response(200, {
@@ -153,37 +152,35 @@ async searchPhotos(
             const tanggalunggah = HelperConfig.onGetDateTimeNow();
             const filelokasi = `http://${process.env.HOST}:${process.env.PORT}/images/${request.file?.filename}`
 
-            // const fileBuffer = await readFile(request.file?.path!);
+            if (request.file === undefined) {
+              reject({
+                success: false,
+                message: 'Failed to upload photo',
+                error: err,
+              });
+            } else {
+              const watermark = Sharp(await readFile(request.file.path)).composite([
+                {input: await readFile('./public/images/example-logo.jpg'), left: 50, top: 50}
+              ]).png().toBuffer();
 
-            // const watermarkPath = resolve('public/images/example-logo.jpg');
+              const fileName = `watermarked-${Date.now()}.png`;
 
+              await writeFile(`./public/uploads/${fileName}`, await watermark);
 
-            // if (typeof watermarkPath !== 'string') {
-            //   throw new Error('Invalid watermark path');
-            // }
-
-            // const watermarkBuffer = await readFile(watermarkPath);
-            // const watermarkedImageBuffer = await sharp(fileBuffer)
-            //   .composite([{ input: watermarkBuffer, left: 50, top: 50 }])
-            //   .png()
-            //   .toBuffer();
-
-            // const watermarkedFilePath = resolve(`./public/images/watermarked-${Date.now()}.jpg`);
-            // await writeFile(watermarkedFilePath, watermarkedImageBuffer);
-
-            const create = await this.fotoRepository.create({
-              JudulFoto: data.JUDULFOTO,
-              DeskripsiFoto: data.DESKRIPSIFOTO,
-              LokasiFile: filelokasi,
-              TanggalUnggah: tanggalunggah,
-              albumId: data.ALBUMID,
-              userId: data.USERID
-            });
-            resolve({
-              data: create,
-              success: true,
-              message: 'Photo uploaded successfully',
-            });
+              const create = await this.fotoRepository.create({
+                JudulFoto: data.JUDULFOTO,
+                DeskripsiFoto: data.DESKRIPSIFOTO,
+                LokasiFile: filelokasi,
+                TanggalUnggah: tanggalunggah,
+                albumId: data.ALBUMID,
+                userId: data.USERID
+              });
+              resolve({
+                data: create,
+                success: true,
+                message: 'Photo uploaded successfully',
+              });
+            }
           } catch (err) {
             resolve({
               success: false,
@@ -199,63 +196,63 @@ async searchPhotos(
 
   @post('/foto/update', {
     responses: {
-        '200': {
-            description: 'update foto',
-            content: {
-                'application/json': {
-                    schema: UPDATE_FOTO,
-                },
-            },
+      '200': {
+        description: 'update foto',
+        content: {
+          'application/json': {
+            schema: UPDATE_FOTO,
+          },
         },
+      },
     },
-})
-async updateFoto(
+  })
+  async updateFoto(
     @requestBody(UPDATE_FOTO)
     updateFoto: {
-        FOTOID: number;
-        JUDULFOTO: string;
-        DESKRIPSIFOTO: string;
-        USERID: number;
+      FOTOID: number;
+      JUDULFOTO: string;
+      DESKRIPSIFOTO: string;
+      USERID: number;
     },
-): Promise<Object> {
+  ): Promise<Object> {
     try {
-        const existing = await this.fotoRepository.findById(updateFoto.FOTOID);
-        existing.JudulFoto = updateFoto.JUDULFOTO;
-        existing.DeskripsiFoto = updateFoto.DESKRIPSIFOTO;
-        existing.userId = updateFoto.USERID;
-        await this.fotoRepository.update(existing);
-        return {success: true, data: existing};
+      const existing = await this.fotoRepository.findById(updateFoto.FOTOID);
+      existing.JudulFoto = updateFoto.JUDULFOTO;
+      existing.DeskripsiFoto = updateFoto.DESKRIPSIFOTO;
+      existing.userId = updateFoto.USERID;
+      await this.fotoRepository.update(existing);
+      return {success: true, data: existing};
     } catch (error) {
-        return {success: false, message: error};
+      return {success: false, message: error};
     }
-}
+  }
 
 
   @post('/foto/delete', {
     responses: {
-        '200': {
-            description: 'delete foto',
-        },
+      '200': {
+        description: 'delete foto',
+      },
     },
-})
-async deleteFoto(
+  })
+  async deleteFoto(
     @requestBody(DELETE_FOTO)
     deleteFoto: {
-        FOTOID: number;
+      FOTOID: number;
     }
-): Promise<Object> {
+  ): Promise<Object> {
     try {
-        const existing = await this.fotoRepository.findById(deleteFoto.FOTOID);
-        if (!existing) {
-            return {success: false, message: 'Foto Tidak di Temukan'};
-        }
+      const existing = await this.fotoRepository.findById(deleteFoto.FOTOID);
+      if (!existing) {
+        return {success: false, message: 'Foto Tidak di Temukan'};
+      }
 
-        await this.fotoRepository.deleteById(deleteFoto.FOTOID);
+      await this.fotoRepository.deleteById(deleteFoto.FOTOID);
 
-        return {success: true, message: 'Foto Berhasil di Hapus'};
+      return {success: true, message: 'Foto Berhasil di Hapus'};
     } catch (error) {
-        return {success: false, message: error};
+      return {success: false, message: error};
     }
-}
+  }
 
 }
